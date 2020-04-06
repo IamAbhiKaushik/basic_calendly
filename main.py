@@ -79,6 +79,15 @@ def add_available_slots():
 		return alert_message(False, "Error updating database entry. Try again.")
 
 
+@app.route('/fetch_meetings', methods=['GET'])
+def fetch_meetings():
+	auth = user_auth(request.headers)
+	if not auth['status']:
+		return alert_message(False, "User not logged in, Login Please.")
+	response = db.user_meeting_table.find_one({'owner': auth['email']}).get('meeting_slots') 
+	return dumps(response)
+
+
 @app.route('/fetch_available_slots', methods=['GET'])
 def fetch_available_slots():
 	auth = user_auth(request.headers)
@@ -115,10 +124,7 @@ def request_slot():
 	return validate_available_meeting_slot(request_data['slot'], request_data['participant'])
 
 
-@app.route('/fetch_meetings', methods=['GET'])
-def fetch_meetings():
-	response = db.user_meeting_table.find_one({'owner': 'current_user'}).get('meeting_slots')
-	return dumps(response)
+
 
 def validate_available_meeting_slot(slot, user, participant):
 
