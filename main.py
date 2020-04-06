@@ -79,13 +79,60 @@ def add_available_slots():
 		return alert_message(False, "Error updating database entry. Try again.")
 
 
-@app.route('/fetch_meetings', methods=['GET'])
-def fetch_meetings():
+@app.route('/fetch_meeting_slots', methods=['GET'])
+def fetch_meeting_slots():
 	auth = user_auth(request.headers)
 	if not auth['status']:
 		return alert_message(False, "User not logged in, Login Please.")
 	response = db.user_meeting_table.find_one({'owner': auth['email']}).get('meeting_slots') 
 	return dumps(response)
+
+
+@app.route('/request_meeting_slot', methods=['POST'])
+def request_meeting_slot():
+	auth = user_auth(request.headers)
+	request_data = request.get_json()
+	if not auth['status'] or not request_data:
+		return alert_message(False, "User not logged in, Login Please.")
+	if ('slot' not in request_data) or ('participant' not in request_data) or ('day_month_year' not in request_data):
+		return alert_message(False, "variables missing. try again with proper infromation.")
+	
+	return validate_available_meeting_slot(request_data['slot'], auth['email'], request_data['participant'], request_data['day_month_year'])
+
+
+def validate_available_meeting_slot(slot, user, participant, day_month_year):
+	participant_data = db.user_meeting_table.find_one({'owner': participant, 'day_month_year': day_month_year})
+	check_1 = False	
+	for user_slot in participant_data.get('free_slots'):
+		if (user_slot[0] <= slot <= user_slot[1]):
+			check_1 = True
+	# TODO -- CHECK IF USER HAS A FREE SLOT at booking time
+	if not check_1 or (slot in participant_data.get('meeting_slots')):
+		return alert_message(False, "Requested time slot not available for meeting. Book another slot.")
+	
+	participant_data['meeting_slots'][slot] = [user, False]
+	response = db.user_meeting_table.update({'owner': participant, 'day_month_year': day_month_year}, participant_data)
+	if response.acknowledged:
+		user_data = db.user_meeting_table.find_one({'owner': user, 'day_month_year': day_month_year})
+		if not user_data:
+			meeting_slot = {}
+			meeting_slot[slot] = [participant, True]
+			user_data = {'owner': user,
+				'day_month_year': day_month_year,
+				'free_slots': MEETING_HOURS, # This will be a list of timings like -> [[9, 11], [13, 17]]
+				'meeting_slots': meeting_slot,
+				'created_at': datetime.utcnow(),
+				'updated_at': datetime.utcnow()	
+				}
+		else:
+			user_data['meeting_slots'][slot] = [participant, True]
+			db.user_meeting_table.update({'owner': user, 'day_month_year': day_month_year}, user_data)
+		
+		
+
+	# TODO- modify user table with this detail as well.
+	# user['meeting_slots'][slot] = [participant, True]
+	return response
 
 
 @app.route('/fetch_available_slots', methods=['GET'])
@@ -116,33 +163,11 @@ def filter_user():
 	return filter_text
 
 
-@app.route('/request_slot', methods=['POST'])
-def request_slot():
-	request_data = request.get_json()
-	if ('slot' not in request_data) or ('participant' not in request_data):
-		return alert_message(False, "variables missing. try again with proper infromation.")	
-	return validate_available_meeting_slot(request_data['slot'], request_data['participant'])
 
 
 
 
-def validate_available_meeting_slot(slot, user, participant):
 
-	participant_slots = db.user_meeting_table.find_one({'owner': participant})
-	check_1 = False	
-	for user_slot in participant_slots.get('free_slots'):
-		if (user_slot[0] <= slot <= user_slot[1]):
-			check_1 = True
-	if not check_1 or (slot in participant_slots.get('meeting_slots')):
-		return alert_message(False, "Requested time slot not available for meeting. Book another slot")
-	
-	participant_slots['meeting_slots'][slot] = [user, False]
-
-	participant_slots['updated_at'] = datetime.utcnow()
-	response = mongo.user_meeting_table.update({'owner': participant}, participant_slots)
-	# TODO- modify user table with this detail as well.
-	# user['meeting_slots'][slot] = [participant, True]
-	return response
 
 
 def user_auth(headers):
