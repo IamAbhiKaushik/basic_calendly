@@ -32,7 +32,9 @@ Visit http://0.0.0.0:5000/ or http://localhost:5000 to verify Flask running
 
 
 #	Error Issues while running locally:
-while running python main.py, if you get an error that something else is running at port 5000, 
+1. There are two different ways of accessing mongoDb. The current url is for accessing mongo in docker. If you intend to run in local via `python3 main.py` way, use `db = MongoClient('mongodb://localhost:27017').db ` in main.py file
+
+2. while running python main.py, if you get an error that something else is running at port 5000, 
 you can check that using <br>
 `sudo lsof -i:5000`
 and stop that service or <br>
