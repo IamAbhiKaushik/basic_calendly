@@ -14,8 +14,8 @@ MEETING_HOURS = [[9, 16]]  # last slot will be [16-17]
 
 @app.route("/")
 def home():
-    # return "Welcome to Calendly App Test App"
-    return dumps(db.users.find())
+    return "Welcome to Calendly App Test App"
+    # return dumps(db.users.find())
 
 
 @app.route('/signup', methods=['POST'])
@@ -78,9 +78,7 @@ def add_available_slots():
             record['updated_at'] = datetime.utcnow()
             record['free_slots'] = request_data['free_slots']
             response = db.user_meeting_table.update({'owner': auth['email'], 'day_month_year': request_data['day_month_year']}, record)
-            # if response.acknowledged:
-            return dumps(record)
-            # return alert_message(False, "Error updating database entry. Try again.")
+            return alert_message(True, f"Successfully updated meeting timings for : {request_data['day_month_year']}.")
         else:
             return alert_message(
                 False, "Entry already exists for current datetime. To force update, pass variable `force_update: true`"
@@ -142,8 +140,6 @@ def meetings_today():
     if not auth['status']:
         return alert_message(False, "User not logged in, Login Please.")
     return redirect(f'/meeting_slots/{get_current_day_month_year()}')
-    # response = db.user_meeting_table.find_one({'owner': auth['email'], 'day_month_year': }).get('meeting_slots')
-    # return dumps(response)
 
 
 @app.route('/request_meeting_slot', methods=['POST'])
@@ -203,35 +199,17 @@ def book_meeting_slot(slot, user, participant, day_month_year):
 
     return dumps(user_response)
 
-    # return alert_message(False, "Failed to write to database. Retry.")
-
-
-# @app.route('/fetch_available_slots', methods=['GET'])
-# def fetch_available_slots():
-#     auth = user_auth(request.headers)
-#     user_old_record = db.user_meeting_table.find({'owner': auth['email']})
-#     return dumps(user_old_record)
-
 
 @app.route('/user_check', methods=['GET'])
 def user_check():
     auth = user_auth(request.headers)
     user = request.args.get('user', None)
-    if not auth['status'] or (user is None):
+    if not auth['status']:
         return alert_message(False, "User not logged in, Login Please.")
+    if (user is None):
+        return alert_message("Request not correct. Add argument 'user' to request.")
+    return dumps(is_user_registered(user))
 
-    return is_user_registered(user)
-
-#     # auth_header = request.headers['Authorization']
-#     # auth_token = jwt.decode(auth_header, PRIVATE_TOKEN, algorithm='HS256')
-
-#     # jwt.decode(token, 'secret', audience='urn:foo', algorithms=['HS256'])
-#     return dumps(auth_token)
-
-#     filter_text = request.args.get('user')
-#     #	TODO Add remaining functions here
-#     # 1. FETCH ALL USER FROM TABLE, MATCH FOR RELEVENT USERS AND RETURN A LIST OF USERS MATCHING THE SUBSTRING
-#     return filter_text
 
 @app.route('/test')
 def test():
@@ -249,18 +227,12 @@ def user_auth(headers):
     try:
         auth_token = jwt.decode(headers['Authorization'], PRIVATE_TOKEN, algorithms=['HS256'])
     except:
-        # raise Exception('Cannot decode token')
         return failed_status
-    # else:
-    #     return failed_status
-
     if 'email' not in auth_token or 'id' not in auth_token:
         return failed_status
-
     user = db.users.find_one({'email': auth_token['email']})
     if not user:
         return failed_status
-
     auth_token['status'] = True
     return auth_token
 
